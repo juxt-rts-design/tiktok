@@ -132,17 +132,22 @@ body {
   color: #6b7280;
 }
 
-.clear-btn {
+.input-actions {
   position: absolute;
   right: 1rem;
   top: 50%;
   transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.paste-btn, .clear-btn {
   background: none;
   border: none;
-  font-size: 1.5rem;
   color: #6b7280;
   cursor: pointer;
-  padding: 0.25rem;
+  padding: 0.5rem;
   border-radius: 50%;
   width: 2rem;
   height: 2rem;
@@ -152,9 +157,14 @@ body {
   transition: all 0.2s ease;
 }
 
-.clear-btn:hover {
+.paste-btn:hover {
+  color: #8b5cf6;
   background: #f3f4f6;
-  color: #374151;
+}
+
+.clear-btn:hover {
+  color: #ef4444;
+  background: #fef2f2;
 }
 
 .download-btn {

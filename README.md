@@ -1,331 +1,123 @@
-# TikTok Downloader - Téléchargeur de Vidéos TikTok Sans Filigrane
-
-## 🎯 Description
-
-Application web personnalisée pour télécharger des vidéos TikTok sans filigrane, développée avec React.js (frontend) et Node.js/Express (backend).
-
-## 🏗️ Architecture
-
-```
-Tiktok/
-├── src/                    # Frontend React
-│   ├── App.tsx            # Composant principal
-│   ├── App.css            # Styles CSS
-│   └── ...
-├── Backend/               # Backend Node.js
-│   ├── index.js           # Serveur Express
-│   └── package.json       # Dépendances backend
-└── package.json           # Dépendances frontend
-```
-
-## 🔧 Technologies Utilisées
-
-### Frontend
-- **React.js** - Framework JavaScript
-- **TypeScript** - Typage statique
-- **Vite** - Outil de build rapide
-- **Tailwind CSS** - Framework CSS
-- **Axios** - Client HTTP
-- **Lucide React** - Icônes
-
-### Backend
-- **Node.js** - Runtime JavaScript
-- **Express.js** - Framework web
-- **Axios** - Client HTTP
-- **CORS** - Gestion des requêtes cross-origin
-- **Helmet** - Sécurité HTTP
-
-## 🚀 Méthode de Fonctionnement
-
-### 1. Résolution d'URLs Courtes
-```javascript
-// Détection et résolution des URLs courtes TikTok
-if (url.includes('vm.tiktok.com') || url.includes('vt.tiktok.com')) {
-  const response = await axios.get(url, {
-    maxRedirects: 10,
-    timeout: 10000,
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-    }
-  });
-  finalUrl = response.request.res.responseUrl || response.config.url;
-}
-```
-
-### 2. API TikWM - Extraction des Métadonnées
-```javascript
-// Récupération des informations vidéo via TikWM
-const tikwmResponse = await axios.get(`https://tikwm.com/api?url=${encodeURIComponent(finalUrl)}`, {
-  headers: {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-    'Accept': 'application/json'
-  },
-  timeout: 30000
-});
-```
-
-**Données extraites :**
-- Titre de la vidéo
-- Nom d'utilisateur et avatar
-- URL de téléchargement (sans filigrane)
-- URL de l'audio
-- Miniature
-- Statistiques (likes, vues, commentaires)
-
-### 3. Proxy Local - Téléchargement Streaming
-```javascript
-// Route proxy pour télécharger la vidéo complète
-app.get('/api/download/:videoId', async (req, res) => {
-  // 1. Récupération de l'URL vidéo via TikWM
-  const videoUrl = tikwmResponse.data.data.play || tikwmResponse.data.data.wmplay;
-  
-  // 2. Téléchargement en streaming depuis TikTok
-  const videoResponse = await axios.get(videoUrl, {
-    responseType: 'stream',
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-      'Referer': 'https://www.tiktok.com/',
-      'Accept': 'video/mp4,video/*,*/*'
-    },
-    timeout: 60000
-  });
-  
-  // 3. Streaming vers le client
-  res.setHeader('Content-Type', 'video/mp4');
-  res.setHeader('Content-Disposition', `attachment; filename="tiktok-${videoId}.mp4"`);
-  videoResponse.data.pipe(res);
-});
-```
-
-## 📋 Workflow Complet
-
-1. **Utilisateur** colle une URL TikTok dans l'interface
-2. **Frontend** envoie la requête au backend via Axios
-3. **Backend** résout l'URL courte si nécessaire
-4. **Backend** interroge l'API TikWM pour extraire les métadonnées
-5. **Backend** retourne les informations à l'interface
-6. **Utilisateur** clique sur "Télécharger MP4"
-7. **Frontend** redirige vers la route proxy `/api/download/:videoId`
-8. **Backend** télécharge la vidéo complète en streaming
-9. **Utilisateur** reçoit le fichier MP4 sans filigrane
-
-## 🛠️ Installation et Démarrage
-
-### Prérequis
-- Node.js (version 16+)
-- npm ou yarn
-
-### Installation
-```bash
-# Cloner le projet
-git clone <repository-url>
-cd Tiktok
-
-# Installer les dépendances frontend
-npm install
-
-# Installer les dépendances backend
-cd Backend
-npm install
-cd ..
-```
-
-### Démarrage
-```bash
-# Terminal 1 - Backend (port 3001)
-cd Backend
-npm run dev
-
-# Terminal 2 - Frontend (port 5173)
-npm run dev
-```
-
-## 🌐 Endpoints API
-
-### `GET /api/health`
-Vérification du statut de l'API
-```json
-{
-  "status": "OK",
-  "message": "TikTok Downloader API est opérationnel",
-  "timestamp": "2025-09-16T12:00:00.000Z"
-}
-```
-
-### `POST /api/download`
-Récupération des métadonnées vidéo
-```json
-{
-  "url": "https://www.tiktok.com/@user/video/1234567890"
-}
-```
-
-**Réponse :**
-```json
-{
-  "success": true,
-  "data": {
-    "id": "1234567890",
-    "title": "Titre de la vidéo",
-    "author": {
-      "username": "username",
-      "nickname": "Nom d'affichage",
-      "avatar": "https://..."
-    },
-    "video": {
-      "url": "https://...",
-      "duration": 15,
-      "size": 2048000,
-      "quality": "HD"
-    },
-    "thumbnail": "https://...",
-    "stats": {
-      "likes": 1000,
-      "shares": 100,
-      "comments": 50,
-      "views": 10000
-    },
-    "downloadUrl": "https://...",
-    "audioUrl": "https://..."
-  }
-}
-```
-
-### `GET /api/download/:videoId?url=...`
-Téléchargement direct de la vidéo via proxy
-- **Headers de réponse :**
-  - `Content-Type: video/mp4`
-  - `Content-Disposition: attachment; filename="tiktok-{videoId}.mp4"`
-  - `Content-Length: {taille du fichier}`
-
-## 🔒 Sécurité
-
-- **CORS** configuré pour les requêtes cross-origin
-- **Helmet** pour les headers de sécurité HTTP
-- **Validation** des URLs TikTok
-- **Timeouts** pour éviter les requêtes bloquantes
-- **User-Agent** réaliste pour éviter la détection
-
-## 🎨 Interface Utilisateur
-
-### Fonctionnalités
-- **Input URL** avec validation
-- **Aperçu vidéo** avec miniature
-- **Informations détaillées** (auteur, statistiques)
-- **Boutons de téléchargement** (MP4, MP3)
-- **Design responsive** avec Tailwind CSS
-- **Icônes** professionnelles (Lucide React)
-
-### Design
-- Interface moderne et épurée
-- Couleurs cohérentes avec TikTok
-- Animations fluides
-- Feedback visuel pour les actions
-
-## 🐛 Gestion d'Erreurs
-
-### Types d'erreurs gérées
-- URLs invalides ou non-TikTok
-- Vidéos privées ou supprimées
-- Erreurs de réseau
-- Timeouts d'API
-- Erreurs de streaming
-
-### Messages d'erreur
-```json
-{
-  "error": "Vidéo non trouvée",
-  "message": "TikWM n'a pas pu récupérer la vidéo",
-  "debug": {
-    "url": "https://...",
-    "videoId": "1234567890",
-    "timestamp": "2025-09-16T12:00:00.000Z"
-  }
-}
-```
-
-## 📊 Avantages de la Méthode
-
-### ✅ Avantages
-- **Sans filigrane** - Vidéos téléchargées sans watermark TikTok
-- **Qualité HD** - Récupération de la meilleure qualité disponible
-- **Rapide** - Streaming direct, pas de stockage local
-- **Fiable** - API TikWM stable et maintenue
-- **Sécurisé** - Proxy local, pas d'exposition des URLs
-- **Complet** - Métadonnées + vidéo + audio
-
-### ⚠️ Limitations
-- Dépendant de l'API TikWM
-- Certaines vidéos peuvent être privées/géo-bloquées
-- Rate limiting possible avec usage intensif
-
-## 🔧 Configuration
-
-### Variables d'environnement
-```bash
-# Backend
-PORT=3001
-NODE_ENV=development
-
-# Frontend
-VITE_API_URL=http://localhost:3001
-```
-
-### Personnalisation
-- Modifier les timeouts dans `Backend/index.js`
-- Changer l'API dans `getTikTokVideoReal()`
-- Personnaliser l'UI dans `src/App.tsx`
-
-## 📝 Logs et Debug
-
-### Logs Backend
-```
-Tentative de récupération réelle pour: https://...
-Résolution de l'URL courte TikTok...
-URL résolue: https://www.tiktok.com/@user/video/1234567890
-Tentative avec TikWM...
-Réponse TikWM: {...}
-URL vidéo TikWM trouvée: https://...
-```
-
-### Debug Frontend
-- Console du navigateur pour les erreurs
-- Network tab pour les requêtes API
-- React DevTools pour l'état des composants
-
-## 🚀 Déploiement
-
-### Production
-```bash
-# Build frontend
-npm run build
-
-# Serveur backend
-cd Backend
-npm start
-```
-
-### Docker (optionnel)
-```dockerfile
-# Dockerfile pour le backend
-FROM node:18-alpine
-WORKDIR /app
-COPY Backend/package*.json ./
-RUN npm install
-COPY Backend/ .
-EXPOSE 3001
-CMD ["npm", "start"]
-```
-
-## 📞 Support
-
-Pour toute question ou problème :
-1. Vérifier les logs du backend
-2. Tester avec une URL TikTok publique
-3. Vérifier la connectivité réseau
-4. Consulter la documentation TikWM
+Yes bro ✌️ tu peux totalement tester ton **backend + frontend local** sur ton **téléphone**. Faut juste que ton phone puisse atteindre ton PC.
 
 ---
 
-**Développé avec ❤️ pour télécharger des vidéos TikTok sans filigrane !**#   t i k t o k  
- 
+### 🛠 Étapes claires :
+
+#### 1. Mets ton PC et ton téléphone **sur le même réseau Wi-Fi**
+
+* Ton serveur backend (Express) tourne sur `localhost:3001`
+* Ton frontend (React/Vite) tourne sur `localhost:5173`
+
+👉 Mais ton **téléphone ne connaît pas `localhost`** du PC. Il faut l’IP locale du PC.
+
+---
+
+#### 2. Trouve l’adresse IP locale de ton PC
+
+Sur ton PC :
+
+* **Windows** :
+
+```bash
+ipconfig
+```
+
+➡️ Regarde `Adresse IPv4` → exemple : `192.168.1.25`
+
+* **Linux / Mac** :
+
+```bash
+ifconfig
+```
+
+➡️ Regarde `inet` (ex: `192.168.1.25`)
+
+---
+
+#### 3. Lance ton backend et frontend en écoutant sur `0.0.0.0`
+
+Par défaut, React (Vite) et Express écoutent `localhost` → seulement accessible depuis le PC.
+Il faut leur dire : **écoute toutes les IPs (0.0.0.0)**
+
+* **Backend Express** (`index.js`) :
+
+```js
+app.listen(3001, '0.0.0.0', () => {
+  console.log('✅ Backend dispo sur http://0.0.0.0:3001');
+});
+```
+
+* **Frontend Vite** (`package.json` → script dev) :
+
+```bash
+vite --host 0.0.0.0
+```
+
+ou si tu utilises `npm run dev`, ajoute dans `vite.config.js` :
+
+```js
+export default defineConfig({
+  server: {
+    host: '0.0.0.0'
+  }
+});
+```
+
+---
+
+#### 4. Depuis ton téléphone → ouvre le navigateur et tape :
+
+* Frontend :
+
+```
+http://192.168.1.67:5173
+```
+
+* Backend API direct :
+
+```
+http://192.168.1.67:3001/api/health
+```
+
+---
+
+## 🎯 **Configuration automatique**
+
+J'ai configuré l'application pour utiliser l'IP `192.168.1.67` :
+
+### ✅ **Modifications effectuées :**
+- **Backend** : Écoute sur `0.0.0.0:3001`
+- **Frontend** : Écoute sur `0.0.0.0:5173` 
+- **URLs** : Mises à jour vers `192.168.1.67`
+- **Script** : `start-mobile.bat` pour démarrage facile
+
+### 🚀 **Démarrage rapide :**
+```bash
+# Double-clic sur le fichier
+start-mobile.bat
+```
+
+Puis ouvrez `http://192.168.1.67:5173` sur votre téléphone !
+
+⚡ Là ton téléphone va voir ton app React + API backend en live !
+
+---
+
+#### 5. ⚠️ Attention firewall
+
+* Si ton PC a un pare-feu (Windows Defender, etc.), faut autoriser Node.js à écouter sur le réseau.
+* Sinon ton phone ne pourra pas accéder.
+
+---
+
+👉 Résumé clair :
+
+* Même Wi-Fi ✅
+* Trouve IP locale ✅
+* Host sur `0.0.0.0` ✅
+* Accède via `http://IP:port` depuis ton phone ✅
+
+---
+
+Tu veux que je te prépare un **script complet prêt à lancer** pour que ton frontend + backend soient accessibles direct sur ton phone sans galérer ?

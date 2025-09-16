@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import axios from 'axios'
-import { Download, Link, User, Heart, MessageCircle, Share, Eye, Clock, Loader2, Music, Play } from 'lucide-react'
+import { Download, Link, User, Heart, MessageCircle, Share, Eye, Clock, Loader2, Music, Play, Clipboard, X } from 'lucide-react'
 import './App.css'
 
 interface VideoData {
@@ -37,100 +37,118 @@ function App() {
   const [cacheStats, setCacheStats] = useState(null)
   const [downloading, setDownloading] = useState(false)
 
+  const handlePaste = async () => {
+    try {
+      const text = await navigator.clipboard.readText()
+      setUrl(text)
+      console.log('📋 Texte collé:', text)
+    } catch (err) {
+      console.error('❌ Erreur de collage:', err)
+      setError('Impossible de coller le texte')
+    }
+  }
+
+  const handleClear = () => {
+    setUrl('')
+    setVideoData(null)
+    setError('')
+    console.log('🗑️ Input effacé')
+  }
+
   const handleDownload = async () => {
     try {
-      console.log('🔴 BOUTON "Télécharger la vidéo" CLIQUE')
-      console.log('🔴 URL:', url)
-      console.log('🔴 URL trim:', url.trim())
-      console.log('🔴 Loading:', loading)
+      console.log('Bouton "Télécharger la vidéo" cliqué')
+      console.log('URL:', url)
+      console.log('URL trim:', url.trim())
+      console.log('Loading:', loading)
       
       if (!url.trim()) {
-        console.log('❌ URL vide')
+        console.log('URL vide')
         setError('Veuillez entrer une URL TikTok')
         return
       }
 
-      // 🚀 Mesure de performance
+      // Mesure de performance
       const startTime = Date.now()
       setPerformance({ startTime, endTime: 0, duration: 0 })
       
-      console.log('🔄 Mise à jour des états...')
+      console.log('Mise à jour des états...')
       setLoading(true)
       setError('')
       setVideoData(null)
-      console.log('✅ États mis à jour, loading = true')
+      console.log('États mis à jour, loading = true')
 
     try {
-      console.log('🚀 Début du téléchargement ultra-rapide...')
-      console.log('🔗 Tentative de connexion au backend...')
+      console.log('Début du téléchargement ultra-rapide...')
+      console.log('Tentative de connexion au backend...')
       
       // Test simple d'abord
-      console.log('🧪 Test simple avant requête...')
+      console.log('Test simple avant requête...')
       await new Promise(resolve => setTimeout(resolve, 100))
-      console.log('✅ Test simple réussi')
+      console.log('Test simple réussi')
       
       // Test de connexion au backend d'abord
       try {
-        console.log('🔍 Test de santé du backend...')
-        const healthCheck = await axios.get('http://localhost:3001/api/health')
-        console.log('✅ Backend accessible:', healthCheck.data)
+        console.log('Test de santé du backend...')
+        const healthCheck = await axios.get('http://192.168.1.67:3001/api/health')
+        console.log('Backend accessible:', healthCheck.data)
       } catch (healthErr) {
-        console.error('❌ Backend inaccessible:', healthErr.message)
+        console.error('Backend inaccessible:', healthErr.message)
         setError('Backend non accessible. Vérifiez que le serveur est démarré.')
         return
       }
       
-      const response = await axios.post('http://localhost:3001/api/download', {
+      const response = await axios.post('http://192.168.1.67:3001/api/download', {
         url: url.trim()
       })
 
-      console.log('✅ Réponse reçue du backend:', response.data)
+      console.log('Réponse reçue du backend:', response.data)
 
       const endTime = Date.now()
       const duration = Math.round(endTime - startTime)
       
       setPerformance({ startTime, endTime, duration })
-      console.log(`⚡ Téléchargement terminé en ${duration}ms`)
+      console.log(`Téléchargement terminé en ${duration}ms`)
 
       if (response.data.success) {
-        console.log('✅ Données vidéo reçues:', response.data.data)
+        console.log('Données vidéo reçues:', response.data.data)
         setVideoData(response.data.data)
       } else {
-        console.log('❌ Erreur dans la réponse:', response.data.message)
+        console.log('Erreur dans la réponse:', response.data.message)
         setError(response.data.message || 'Erreur lors du téléchargement')
       }
     } catch (err: any) {
-      console.error('❌ Erreur complète:', err)
-      console.error('❌ Message d\'erreur:', err.message)
-      console.error('❌ Code d\'erreur:', err.code)
-      console.error('❌ Réponse d\'erreur:', err.response?.data)
+      console.error('Erreur complète:', err)
+      console.error('Message d\'erreur:', err.message)
+      console.error('Code d\'erreur:', err.code)
+      console.error('Réponse d\'erreur:', err.response?.data)
       setError(err.response?.data?.message || 'Erreur de connexion au serveur')
     } finally {
-      console.log('🔄 Fin du processus, loading = false')
+      console.log('Fin du processus, loading = false')
       setLoading(false)
     }
     } catch (globalErr) {
-      console.error('💥 ERREUR GLOBALE dans handleDownload:', globalErr)
+      console.error('ERREUR GLOBALE dans handleDownload:', globalErr)
       setError('Erreur inattendue: ' + globalErr.message)
       setLoading(false)
     }
   }
 
   const handleDownloadVideo = async () => {
-    console.log('🔴 BOUTON CLIQUE - handleDownloadVideo appelé')
-    console.log('🔴 videoData:', videoData)
-    console.log('🔴 url:', url)
+    console.log('BOUTON CLIQUE - handleDownloadVideo appelé')
+    console.log('videoData:', videoData)
+    console.log('url:', url)
     
     if (videoData) {
-      console.log('✅ videoData existe, début du téléchargement...')
+      console.log('videoData existe, début du téléchargement...')
       setDownloading(true)
       setError('')
       
       try {
-        console.log('🚀 Début du téléchargement vidéo...')
+        console.log('Début du téléchargement vidéo...')
         
-        // 🚀 Utiliser la route proxy ultra-rapide du backend
-        const proxyUrl = `http://localhost:3001/api/download/${videoData.id}?url=${encodeURIComponent(url)}`
+        // Utiliser la route proxy ultra-rapide du backend
+        const proxyUrl = `http://192.168.1.67:3001/api/download/${videoData.id}?url=${encodeURIComponent(url)}`
         console.log('URL proxy:', proxyUrl)
         
         // Créer un lien de téléchargement optimisé
@@ -148,7 +166,7 @@ function App() {
         link.click()
         document.body.removeChild(link)
         
-        console.log('🚀 Téléchargement ultra-rapide lancé via proxy')
+        console.log('Téléchargement ultra-rapide lancé via proxy')
         
         // Simuler un délai pour l'UI
         setTimeout(() => {
@@ -156,12 +174,12 @@ function App() {
         }, 2000)
         
       } catch (error) {
-        console.error('❌ Erreur de téléchargement proxy:', error)
+        console.error('Erreur de téléchargement proxy:', error)
         setDownloading(false)
         
         // Fallback : téléchargement direct si disponible
         if (videoData.downloadUrl) {
-          console.log('🔄 Fallback vers téléchargement direct...')
+          console.log('Fallback vers téléchargement direct...')
           const link = document.createElement('a')
           link.href = videoData.downloadUrl
           link.download = `tiktok-${videoData.id}.mp4`
@@ -171,12 +189,12 @@ function App() {
           link.click()
           document.body.removeChild(link)
         } else {
-          console.error('❌ Aucune URL de téléchargement disponible')
+          console.error('Aucune URL de téléchargement disponible')
           setError('Impossible de télécharger la vidéo')
         }
       }
     } else {
-      console.error('❌ Aucune donnée vidéo disponible')
+      console.error('Aucune donnée vidéo disponible')
       setError('Aucune vidéo à télécharger')
     }
   }
@@ -184,7 +202,7 @@ function App() {
   const handleDownloadAudio = () => {
     if (videoData?.audioUrl) {
       try {
-        console.log('🎵 Début du téléchargement audio...')
+        console.log('Début du téléchargement audio...')
         
         const link = document.createElement('a')
         link.href = videoData.audioUrl
@@ -197,13 +215,13 @@ function App() {
         link.click()
         document.body.removeChild(link)
         
-        console.log('🎵 Téléchargement audio lancé')
+        console.log('Téléchargement audio lancé')
       } catch (error) {
-        console.error('❌ Erreur de téléchargement audio:', error)
+        console.error('Erreur de téléchargement audio:', error)
         window.open(videoData.audioUrl, '_blank', 'noopener,noreferrer')
       }
     } else {
-      console.error('❌ Aucune URL audio disponible')
+      console.error('Aucune URL audio disponible')
       setError('Aucun fichier audio à télécharger')
     }
   }
@@ -230,7 +248,7 @@ function App() {
         <div className="header-content">
           <h1 className="logo">
             <Download className="logo-icon" />
-            TikTok Downloader
+            TikTok Juxt_RTS
           </h1>
           <p className="subtitle">
             Téléchargez vos vidéos TikTok sans filigrane, gratuitement et en haute qualité
@@ -254,35 +272,27 @@ function App() {
                   className="url-input"
                   disabled={loading}
                 />
-                {url && (
+                <div className="input-actions">
                   <button
-                    onClick={() => setUrl('')}
+                    onClick={handlePaste}
                     disabled={loading}
-                    className="clear-btn"
+                    className="paste-btn"
+                    title="Coller depuis le presse-papiers"
                   >
-                    ×
+                    <Clipboard size={16} />
                   </button>
-                )}
+                  {url && (
+                    <button
+                      onClick={handleClear}
+                      disabled={loading}
+                      className="clear-btn"
+                      title="Effacer"
+                    >
+                      <X size={16} />
+                    </button>
+                  )}
+                </div>
               </div>
-
-              {/* Bouton de test */}
-              <button
-                onClick={() => {
-                  console.log('🧪 TEST BOUTON PRINCIPAL CLIQUE')
-                  alert('Bouton principal fonctionne !')
-                }}
-                style={{
-                  background: 'red',
-                  color: 'white',
-                  padding: '0.75rem 1.5rem',
-                  marginRight: '1rem',
-                  border: 'none',
-                  borderRadius: '0.5rem',
-                  cursor: 'pointer'
-                }}
-              >
-                TEST PRINCIPAL
-              </button>
 
               <button
                 onClick={handleDownload}
@@ -331,30 +341,8 @@ function App() {
                   {/* Overlay */}
                   <div className="video-overlay">
                     <div>
-                      {/* Bouton de test */}
                       <button
-                        onClick={() => {
-                          console.log('🧪 TEST BOUTON CLIQUE')
-                          alert('Bouton fonctionne !')
-                        }}
-                        style={{
-                          background: 'orange',
-                          color: 'white',
-                          padding: '0.5rem',
-                          marginRight: '1rem',
-                          border: 'none',
-                          borderRadius: '0.5rem',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        TEST
-                      </button>
-                      
-                      <button
-                        onClick={() => {
-                          console.log('🔴 BOUTON CLIQUE DIRECTEMENT')
-                          handleDownloadVideo()
-                        }}
+                        onClick={handleDownloadVideo}
                         className="download-video-btn"
                         disabled={downloading}
                       >
@@ -499,7 +487,7 @@ function App() {
       <footer className="footer">
         <div className="container">
           <div className="footer-content">
-            <p>&copy; 2024 TikTok Downloader - Outil personnel de téléchargement</p>
+            <p>&copy; 2025 TikTok Juxt_RTS - Outil personnel de téléchargement</p>
             <p className="disclaimer">
               Cet outil est destiné à un usage personnel uniquement. 
               Respectez les droits d'auteur et les conditions d'utilisation de TikTok.

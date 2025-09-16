@@ -249,7 +249,11 @@ app.use(helmet());
 
 // Configuration CORS pour permettre les requêtes depuis le frontend
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: [
+    'http://localhost:5173',
+    'http://192.168.1.67:5173',
+    'http://127.0.0.1:5173'
+  ],
   credentials: true
 }));
 
@@ -646,10 +650,11 @@ app.use((error, req, res, next) => {
 });
 
 // Démarrage du serveur
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Serveur TikTok Downloader démarré sur le port ${PORT}`);
-  console.log(`📱 API disponible sur: http://localhost:${PORT}/api`);
-  console.log(`🔗 Health check: http://localhost:${PORT}/api/health`);
+  console.log(`📱 Accessible depuis le téléphone: http://192.168.1.67:${PORT}`);
+  console.log(`🔗 API disponible sur: http://192.168.1.67:${PORT}/api`);
+  console.log(`❤️ Health check: http://192.168.1.67:${PORT}/api/health`);
 });
 
 module.exports = app;
