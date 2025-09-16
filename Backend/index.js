@@ -3,6 +3,58 @@ const cors = require('cors');
 const helmet = require('helmet');
 const axios = require('axios');
 const path = require('path');
+const fs = require('fs');
+const https = require('https');
+const { PassThrough } = require('stream');
+
+// 🚀 CACHES POUR ACCÉLÉRATION ULTRA-RAPIDE
+const urlCache = new Map(); // Cache des URLs courtes résolues
+const metadataCache = new Map(); // Cache des métadonnées TikWM
+const videoCache = new Map(); // Cache des URLs vidéo téléchargées
+
+// Configuration optimisée pour la vitesse
+const httpsAgent = new https.Agent({ 
+  keepAlive: true, 
+  maxSockets: 50,
+  timeout: 10000
+});
+
+// Dossier de cache temporaire pour les vidéos
+const CACHE_DIR = path.join(__dirname, 'cache');
+if (!fs.existsSync(CACHE_DIR)) {
+  fs.mkdirSync(CACHE_DIR, { recursive: true });
+}
+
+// Nettoyage du cache toutes les heures
+setInterval(() => {
+  const now = Date.now();
+  const maxAge = 60 * 60 * 1000; // 1 heure
+  
+  for (const [key, value] of urlCache.entries()) {
+    if (now - value.timestamp > maxAge) {
+      urlCache.delete(key);
+    }
+  }
+  
+  for (const [key, value] of metadataCache.entries()) {
+    if (now - value.timestamp > maxAge) {
+      metadataCache.delete(key);
+    }
+  }
+  
+  // Nettoyer les fichiers vidéo anciens
+  fs.readdir(CACHE_DIR, (err, files) => {
+    if (!err) {
+      files.forEach(file => {
+        const filePath = path.join(CACHE_DIR, file);
+        const stats = fs.statSync(filePath);
+        if (now - stats.mtime.getTime() > maxAge) {
+          fs.unlinkSync(filePath);
+        }
+      });
+    }
+  });
+}, 60 * 60 * 1000);
 
 // Fonction pour utiliser TikWM API (priorité)
 async function getTikTokVideoTikWM(url) {
@@ -112,45 +164,40 @@ async function getTikTokVideoBOTCAHX(url) {
   }
 }
 
-// Fonction pour utiliser une API qui fonctionne vraiment
+// 🚀 FONCTION ULTRA-RAPIDE AVEC CACHE DES MÉTADONNÉES
 async function getTikTokVideoReal(url) {
-  console.log('Tentative de récupération réelle pour:', url);
+  console.log('🚀 Tentative de récupération ultra-rapide pour:', url);
   
-  // Résoudre l'URL courte si nécessaire
+  // Vérifier le cache des métadonnées d'abord
+  if (metadataCache.has(url)) {
+    const cached = metadataCache.get(url);
+    console.log(`🚀 Métadonnées trouvées dans le cache pour: ${url}`);
+    return cached;
+  }
+  
+  // Résoudre l'URL courte si nécessaire (avec cache)
   let finalUrl = url;
   if (url.includes('vm.tiktok.com') || url.includes('vt.tiktok.com')) {
-    console.log('Résolution de l\'URL courte TikTok...');
-    try {
-      const response = await axios.get(url, {
-        maxRedirects: 10,
-        timeout: 10000,
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        }
-      });
-      finalUrl = response.request.res.responseUrl || response.config.url;
-      console.log('URL résolue:', finalUrl);
-    } catch (redirectError) {
-      console.log('Erreur de résolution d\'URL, utilisation de l\'URL originale');
-    }
+    finalUrl = await resolveTikTokUrl(url);
   }
 
-  // Utilisation de l'API TikWM uniquement
+  // Utilisation de l'API TikWM avec configuration optimisée
   try {
-    console.log('Tentative avec TikWM...');
+    console.log('🔍 Tentative avec TikWM (optimisé)...');
     const tikwmResponse = await axios.get(`https://tikwm.com/api?url=${encodeURIComponent(finalUrl)}`, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         'Accept': 'application/json'
       },
-      timeout: 30000
+      timeout: 12000, // Réduit de 30s à 12s
+      httpsAgent: httpsAgent // Keep-alive pour la vitesse
     });
 
-    console.log('Réponse TikWM:', JSON.stringify(tikwmResponse.data, null, 2));
+    console.log('📊 Réponse TikWM reçue');
     
     if (tikwmResponse.data && tikwmResponse.data.code === 0 && tikwmResponse.data.data) {
       const data = tikwmResponse.data.data;
-      return {
+      const result = {
         success: true,
         data: {
           id: data.id || Date.now().toString(),
@@ -177,11 +224,18 @@ async function getTikTokVideoReal(url) {
           audioUrl: data.music || null
         }
       };
+      
+      // Mettre en cache les métadonnées
+      metadataCache.set(url, result);
+      metadataCache.set(finalUrl, result); // Cache aussi pour l'URL résolue
+      
+      console.log('✅ Métadonnées récupérées et mises en cache');
+      return result;
     } else {
       throw new Error(`TikWM a retourné une erreur: ${JSON.stringify(tikwmResponse.data)}`);
     }
   } catch (tikwmError) {
-    console.error('Erreur TikWM:', tikwmError.message);
+    console.error('❌ Erreur TikWM:', tikwmError.message);
     throw new Error(`Impossible de récupérer la vidéo: ${tikwmError.message}`);
   }
 }
@@ -232,6 +286,71 @@ app.get('/api/test-video', async (req, res) => {
       message: 'Test échoué',
       error: error.message
     });
+  }
+});
+
+// 🚀 Route de statistiques de cache pour monitoring
+app.get('/api/cache-stats', (req, res) => {
+  try {
+    const stats = {
+      urlCache: {
+        size: urlCache.size,
+        entries: Array.from(urlCache.keys())
+      },
+      metadataCache: {
+        size: metadataCache.size,
+        entries: Array.from(metadataCache.keys())
+      },
+      videoCache: {
+        files: fs.existsSync(CACHE_DIR) ? fs.readdirSync(CACHE_DIR).length : 0,
+        totalSize: 0
+      },
+      performance: {
+        uptime: process.uptime(),
+        memoryUsage: process.memoryUsage(),
+        timestamp: new Date().toISOString()
+      }
+    };
+
+    // Calculer la taille totale du cache vidéo
+    if (fs.existsSync(CACHE_DIR)) {
+      const files = fs.readdirSync(CACHE_DIR);
+      stats.videoCache.totalSize = files.reduce((total, file) => {
+        const filePath = path.join(CACHE_DIR, file);
+        const stats = fs.statSync(filePath);
+        return total + stats.size;
+      }, 0);
+    }
+
+    res.json(stats);
+  } catch (error) {
+    res.status(500).json({ error: 'Erreur de récupération des stats' });
+  }
+});
+
+// 🚀 Route pour vider le cache
+app.post('/api/clear-cache', (req, res) => {
+  try {
+    // Vider les caches en mémoire
+    urlCache.clear();
+    metadataCache.clear();
+    videoCache.clear();
+
+    // Supprimer les fichiers de cache vidéo
+    if (fs.existsSync(CACHE_DIR)) {
+      const files = fs.readdirSync(CACHE_DIR);
+      files.forEach(file => {
+        fs.unlinkSync(path.join(CACHE_DIR, file));
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Cache vidé avec succès',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Erreur lors du vidage du cache' });
   }
 });
 
@@ -342,30 +461,45 @@ app.post('/api/download', async (req, res) => {
   }
 });
 
-// Fonction pour résoudre les URLs courtes TikTok
+// 🚀 FONCTION ULTRA-RAPIDE DE RÉSOLUTION D'URLS COURTES AVEC CACHE
 async function resolveTikTokUrl(shortUrl) {
   try {
-    console.log(`Résolution de l'URL courte: ${shortUrl}`);
+    // Vérifier le cache d'abord
+    if (urlCache.has(shortUrl)) {
+      const cached = urlCache.get(shortUrl);
+      console.log(`🚀 URL courte trouvée dans le cache: ${shortUrl} → ${cached.url}`);
+      return cached.url;
+    }
     
-    // Suivre les redirections pour obtenir l'URL complète
+    console.log(`🔍 Résolution de l'URL courte: ${shortUrl}`);
+    
+    // Suivre les redirections avec configuration optimisée
     const response = await axios.get(shortUrl, {
-      maxRedirects: 10,
-      timeout: 10000,
+      maxRedirects: 3, // Réduit de 10 à 3 pour la vitesse
+      timeout: 8000,   // Réduit de 10s à 8s
+      httpsAgent: httpsAgent, // Keep-alive pour la vitesse
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
       }
     });
     
     const finalUrl = response.request.res.responseUrl || response.config.url;
-    console.log(`URL résolue: ${finalUrl}`);
+    
+    // Mettre en cache l'URL résolue
+    urlCache.set(shortUrl, {
+      url: finalUrl,
+      timestamp: Date.now()
+    });
+    
+    console.log(`✅ URL résolue et mise en cache: ${finalUrl}`);
     return finalUrl;
   } catch (error) {
-    console.log(`Erreur de résolution d'URL: ${error.message}`);
+    console.log(`❌ Erreur de résolution d'URL: ${error.message}`);
     return shortUrl; // Retourner l'URL originale si la résolution échoue
   }
 }
 
-// Route pour télécharger directement un fichier via proxy
+// 🚀 ROUTE ULTRA-RAPIDE DE TÉLÉCHARGEMENT AVEC CACHE VIDÉO
 app.get('/api/download/:videoId', async (req, res) => {
   try {
     const { videoId } = req.params;
@@ -375,83 +509,115 @@ app.get('/api/download/:videoId', async (req, res) => {
       return res.status(400).json({ error: 'URL requise' });
     }
 
-    console.log(`Téléchargement proxy pour: ${url}`);
+    console.log(`🚀 Téléchargement proxy ultra-rapide pour: ${url}`);
 
-    // Résoudre l'URL courte si nécessaire
+    // Vérifier le cache vidéo d'abord
+    const cacheKey = `${videoId}_${url}`;
+    const cachedVideoPath = path.join(CACHE_DIR, `${videoId}.mp4`);
+    
+    if (fs.existsSync(cachedVideoPath)) {
+      console.log(`🚀 Vidéo trouvée dans le cache local: ${cachedVideoPath}`);
+      
+      const stats = fs.statSync(cachedVideoPath);
+      res.setHeader('Content-Type', 'video/mp4');
+      res.setHeader('Content-Disposition', `attachment; filename="tiktok-${videoId}.mp4"`);
+      res.setHeader('Content-Length', stats.size);
+      res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache 1h
+      
+      // Streamer directement depuis le cache
+      const fileStream = fs.createReadStream(cachedVideoPath);
+      fileStream.pipe(res);
+      
+      fileStream.on('error', (error) => {
+        console.error('❌ Erreur de lecture du cache:', error);
+        if (!res.headersSent) {
+          res.status(500).json({ error: 'Erreur de lecture du cache' });
+        }
+      });
+      
+      return;
+    }
+
+    // Résoudre l'URL courte si nécessaire (avec cache)
     if (url.includes('vm.tiktok.com') || url.includes('vt.tiktok.com')) {
       url = await resolveTikTokUrl(url);
     }
 
-    // Utilisation de TikWM uniquement
-    try {
-      console.log('Tentative avec TikWM...');
+    // Utilisation de TikWM avec cache des métadonnées
+    let videoUrl;
+    if (metadataCache.has(url)) {
+      console.log('🚀 Utilisation des métadonnées en cache');
+      const cached = metadataCache.get(url);
+      videoUrl = cached.data.downloadUrl;
+    } else {
+      console.log('🔍 Récupération des métadonnées via TikWM...');
       const tikwmResponse = await axios.get(`https://tikwm.com/api?url=${encodeURIComponent(url)}`, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
           'Accept': 'application/json'
         },
-        timeout: 30000
+        timeout: 12000,
+        httpsAgent: httpsAgent
       });
 
-      console.log('Réponse TikWM:', JSON.stringify(tikwmResponse.data, null, 2));
-
       if (tikwmResponse.data && tikwmResponse.data.code === 0 && tikwmResponse.data.data) {
-        const videoUrl = tikwmResponse.data.data.play || tikwmResponse.data.data.wmplay;
-        
-        if (videoUrl) {
-          console.log(`URL vidéo TikWM trouvée: ${videoUrl}`);
-          
-          // Télécharger la vidéo depuis TikTok
-          const videoResponse = await axios.get(videoUrl, {
-            responseType: 'stream',
-            headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-              'Referer': 'https://www.tiktok.com/',
-              'Accept': 'video/mp4,video/*,*/*'
-            },
-            timeout: 60000
-          });
-
-          // Définir les headers pour le téléchargement
-          res.setHeader('Content-Type', 'video/mp4');
-          res.setHeader('Content-Disposition', `attachment; filename="tiktok-${videoId}.mp4"`);
-          res.setHeader('Content-Length', videoResponse.headers['content-length'] || '');
-          res.setHeader('Cache-Control', 'no-cache');
-
-          // Streamer la vidéo vers le client
-          videoResponse.data.pipe(res);
-
-          videoResponse.data.on('error', (error) => {
-            console.error('Erreur de stream vidéo TikWM:', error);
-            if (!res.headersSent) {
-              res.status(500).json({ error: 'Erreur de téléchargement de la vidéo' });
-            }
-          });
-
-          return;
-        } else {
-          console.log('Aucune URL vidéo trouvée dans TikWM');
-        }
+        videoUrl = tikwmResponse.data.data.play || tikwmResponse.data.data.wmplay;
       } else {
-        console.log('TikWM a retourné une erreur:', tikwmResponse.data);
+        throw new Error('TikWM n\'a pas pu récupérer la vidéo');
       }
-    } catch (tikwmError) {
-      console.log('Erreur TikWM:', tikwmError.message);
+    }
+    
+    if (videoUrl) {
+      console.log(`🎬 URL vidéo trouvée: ${videoUrl}`);
+      
+      // Télécharger la vidéo avec streaming optimisé
+      const videoResponse = await axios.get(videoUrl, {
+        responseType: 'stream',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Referer': 'https://www.tiktok.com/'
+        },
+        timeout: 45000, // Réduit de 60s à 45s
+        httpsAgent: httpsAgent
+      });
+
+      // Créer un stream de passage pour le cache
+      const passThrough = new PassThrough();
+      const writeStream = fs.createWriteStream(cachedVideoPath);
+      
+      // Définir les headers pour le téléchargement
+      res.setHeader('Content-Type', 'video/mp4');
+      res.setHeader('Content-Disposition', `attachment; filename="tiktok-${videoId}.mp4"`);
+      res.setHeader('Content-Length', videoResponse.headers['content-length'] || '');
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+
+      // Dupliquer le stream : un vers le client, un vers le cache
+      videoResponse.data.pipe(passThrough);
+      videoResponse.data.pipe(writeStream);
+      passThrough.pipe(res);
+
+      // Gestion des erreurs
+      videoResponse.data.on('error', (error) => {
+        console.error('❌ Erreur de stream vidéo:', error);
+        if (!res.headersSent) {
+          res.status(500).json({ error: 'Erreur de téléchargement de la vidéo' });
+        }
+      });
+
+      writeStream.on('error', (error) => {
+        console.error('❌ Erreur d\'écriture du cache:', error);
+      });
+
+      writeStream.on('finish', () => {
+        console.log(`✅ Vidéo mise en cache: ${cachedVideoPath}`);
+      });
+
+    } else {
+      throw new Error('Aucune URL vidéo trouvée');
     }
 
-    console.log('TikWM a échoué');
-    res.status(404).json({ 
-      error: 'Vidéo non trouvée',
-      message: 'TikWM n\'a pas pu récupérer la vidéo',
-      debug: {
-        url: url,
-        videoId: videoId,
-        timestamp: new Date().toISOString()
-      }
-    });
-
   } catch (error) {
-    console.error('Erreur de téléchargement proxy:', error);
+    console.error('❌ Erreur de téléchargement proxy:', error);
     if (!res.headersSent) {
       res.status(500).json({ 
         error: 'Erreur de téléchargement',

@@ -33,78 +33,178 @@ function App() {
   const [loading, setLoading] = useState(false)
   const [videoData, setVideoData] = useState<VideoData | null>(null)
   const [error, setError] = useState('')
+  const [performance, setPerformance] = useState({ startTime: 0, endTime: 0, duration: 0 })
+  const [cacheStats, setCacheStats] = useState(null)
+  const [downloading, setDownloading] = useState(false)
 
   const handleDownload = async () => {
-    if (!url.trim()) {
-      setError('Veuillez entrer une URL TikTok')
-      return
-    }
+    try {
+      console.log('🔴 BOUTON "Télécharger la vidéo" CLIQUE')
+      console.log('🔴 URL:', url)
+      console.log('🔴 URL trim:', url.trim())
+      console.log('🔴 Loading:', loading)
+      
+      if (!url.trim()) {
+        console.log('❌ URL vide')
+        setError('Veuillez entrer une URL TikTok')
+        return
+      }
 
-    setLoading(true)
-    setError('')
-    setVideoData(null)
+      // 🚀 Mesure de performance
+      const startTime = Date.now()
+      setPerformance({ startTime, endTime: 0, duration: 0 })
+      
+      console.log('🔄 Mise à jour des états...')
+      setLoading(true)
+      setError('')
+      setVideoData(null)
+      console.log('✅ États mis à jour, loading = true')
 
     try {
+      console.log('🚀 Début du téléchargement ultra-rapide...')
+      console.log('🔗 Tentative de connexion au backend...')
+      
+      // Test simple d'abord
+      console.log('🧪 Test simple avant requête...')
+      await new Promise(resolve => setTimeout(resolve, 100))
+      console.log('✅ Test simple réussi')
+      
+      // Test de connexion au backend d'abord
+      try {
+        console.log('🔍 Test de santé du backend...')
+        const healthCheck = await axios.get('http://localhost:3001/api/health')
+        console.log('✅ Backend accessible:', healthCheck.data)
+      } catch (healthErr) {
+        console.error('❌ Backend inaccessible:', healthErr.message)
+        setError('Backend non accessible. Vérifiez que le serveur est démarré.')
+        return
+      }
+      
       const response = await axios.post('http://localhost:3001/api/download', {
         url: url.trim()
       })
 
+      console.log('✅ Réponse reçue du backend:', response.data)
+
+      const endTime = Date.now()
+      const duration = Math.round(endTime - startTime)
+      
+      setPerformance({ startTime, endTime, duration })
+      console.log(`⚡ Téléchargement terminé en ${duration}ms`)
+
       if (response.data.success) {
+        console.log('✅ Données vidéo reçues:', response.data.data)
         setVideoData(response.data.data)
       } else {
+        console.log('❌ Erreur dans la réponse:', response.data.message)
         setError(response.data.message || 'Erreur lors du téléchargement')
       }
     } catch (err: any) {
-      console.error('Erreur:', err)
+      console.error('❌ Erreur complète:', err)
+      console.error('❌ Message d\'erreur:', err.message)
+      console.error('❌ Code d\'erreur:', err.code)
+      console.error('❌ Réponse d\'erreur:', err.response?.data)
       setError(err.response?.data?.message || 'Erreur de connexion au serveur')
     } finally {
+      console.log('🔄 Fin du processus, loading = false')
+      setLoading(false)
+    }
+    } catch (globalErr) {
+      console.error('💥 ERREUR GLOBALE dans handleDownload:', globalErr)
+      setError('Erreur inattendue: ' + globalErr.message)
       setLoading(false)
     }
   }
 
   const handleDownloadVideo = async () => {
-    if (videoData?.downloadUrl) {
+    console.log('🔴 BOUTON CLIQUE - handleDownloadVideo appelé')
+    console.log('🔴 videoData:', videoData)
+    console.log('🔴 url:', url)
+    
+    if (videoData) {
+      console.log('✅ videoData existe, début du téléchargement...')
+      setDownloading(true)
+      setError('')
+      
       try {
-        // Utiliser la route proxy du backend pour télécharger la vidéo complète
+        console.log('🚀 Début du téléchargement vidéo...')
+        
+        // 🚀 Utiliser la route proxy ultra-rapide du backend
         const proxyUrl = `http://localhost:3001/api/download/${videoData.id}?url=${encodeURIComponent(url)}`
+        console.log('URL proxy:', proxyUrl)
+        
+        // Créer un lien de téléchargement optimisé
         const link = document.createElement('a')
         link.href = proxyUrl
         link.download = `tiktok-${videoData.id}.mp4`
         link.target = '_blank'
         link.rel = 'noopener noreferrer'
+        
+        // Ajouter des attributs pour la performance
+        link.setAttribute('download', `tiktok-${videoData.id}.mp4`)
+        link.style.display = 'none'
+        
         document.body.appendChild(link)
         link.click()
         document.body.removeChild(link)
+        
+        console.log('🚀 Téléchargement ultra-rapide lancé via proxy')
+        
+        // Simuler un délai pour l'UI
+        setTimeout(() => {
+          setDownloading(false)
+        }, 2000)
+        
       } catch (error) {
-        console.error('Erreur de téléchargement proxy:', error)
-        // Fallback : téléchargement direct
-        const link = document.createElement('a')
-        link.href = videoData.downloadUrl
-        link.download = `tiktok-${videoData.id}.mp4`
-        link.target = '_blank'
-        link.rel = 'noopener noreferrer'
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
+        console.error('❌ Erreur de téléchargement proxy:', error)
+        setDownloading(false)
+        
+        // Fallback : téléchargement direct si disponible
+        if (videoData.downloadUrl) {
+          console.log('🔄 Fallback vers téléchargement direct...')
+          const link = document.createElement('a')
+          link.href = videoData.downloadUrl
+          link.download = `tiktok-${videoData.id}.mp4`
+          link.target = '_blank'
+          link.rel = 'noopener noreferrer'
+          document.body.appendChild(link)
+          link.click()
+          document.body.removeChild(link)
+        } else {
+          console.error('❌ Aucune URL de téléchargement disponible')
+          setError('Impossible de télécharger la vidéo')
+        }
       }
+    } else {
+      console.error('❌ Aucune donnée vidéo disponible')
+      setError('Aucune vidéo à télécharger')
     }
   }
 
   const handleDownloadAudio = () => {
     if (videoData?.audioUrl) {
       try {
+        console.log('🎵 Début du téléchargement audio...')
+        
         const link = document.createElement('a')
         link.href = videoData.audioUrl
         link.download = `tiktok-audio-${videoData.id}.mp3`
         link.target = '_blank'
         link.rel = 'noopener noreferrer'
+        link.style.display = 'none'
+        
         document.body.appendChild(link)
         link.click()
         document.body.removeChild(link)
+        
+        console.log('🎵 Téléchargement audio lancé')
       } catch (error) {
-        console.error('Erreur de téléchargement audio:', error)
+        console.error('❌ Erreur de téléchargement audio:', error)
         window.open(videoData.audioUrl, '_blank', 'noopener,noreferrer')
       }
+    } else {
+      console.error('❌ Aucune URL audio disponible')
+      setError('Aucun fichier audio à télécharger')
     }
   }
 
@@ -165,6 +265,25 @@ function App() {
                 )}
               </div>
 
+              {/* Bouton de test */}
+              <button
+                onClick={() => {
+                  console.log('🧪 TEST BOUTON PRINCIPAL CLIQUE')
+                  alert('Bouton principal fonctionne !')
+                }}
+                style={{
+                  background: 'red',
+                  color: 'white',
+                  padding: '0.75rem 1.5rem',
+                  marginRight: '1rem',
+                  border: 'none',
+                  borderRadius: '0.5rem',
+                  cursor: 'pointer'
+                }}
+              >
+                TEST PRINCIPAL
+              </button>
+
               <button
                 onClick={handleDownload}
                 disabled={loading || !url.trim()}
@@ -212,12 +331,35 @@ function App() {
                   {/* Overlay */}
                   <div className="video-overlay">
                     <div>
+                      {/* Bouton de test */}
                       <button
-                        onClick={handleDownloadVideo}
+                        onClick={() => {
+                          console.log('🧪 TEST BOUTON CLIQUE')
+                          alert('Bouton fonctionne !')
+                        }}
+                        style={{
+                          background: 'orange',
+                          color: 'white',
+                          padding: '0.5rem',
+                          marginRight: '1rem',
+                          border: 'none',
+                          borderRadius: '0.5rem',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        TEST
+                      </button>
+                      
+                      <button
+                        onClick={() => {
+                          console.log('🔴 BOUTON CLIQUE DIRECTEMENT')
+                          handleDownloadVideo()
+                        }}
                         className="download-video-btn"
+                        disabled={downloading}
                       >
                         <Download />
-                        MP4
+                        {downloading ? 'Téléchargement...' : 'MP4'}
                       </button>
                       {videoData.audioUrl && (
                         <button
@@ -234,6 +376,18 @@ function App() {
 
                 {/* Video Info */}
                 <div className="video-info">
+                  {/* 🚀 Indicateur de performance */}
+                  {performance.duration > 0 && (
+                    <div className="performance-indicator">
+                      <span className="performance-badge">
+                        ⚡ Traité en {performance.duration}ms
+                      </span>
+                      {performance.duration < 1000 && (
+                        <span className="ultra-fast">🚀 ULTRA-RAPIDE !</span>
+                      )}
+                    </div>
+                  )}
+                  
                   {/* Title */}
                   <h3 className="video-title">{videoData.title}</h3>
                   
@@ -297,7 +451,7 @@ function App() {
 
                   {/* Quality & Size */}
                   <div className="video-quality">
-                    <div>
+      <div>
                       <span className="quality-badge">{videoData.video.quality}</span>
                     </div>
                     <span className="file-size">
@@ -338,7 +492,7 @@ function App() {
               </div>
             </div>
           </div>
-        </div>
+      </div>
       </main>
 
       {/* Footer */}
@@ -349,8 +503,8 @@ function App() {
             <p className="disclaimer">
               Cet outil est destiné à un usage personnel uniquement. 
               Respectez les droits d'auteur et les conditions d'utilisation de TikTok.
-            </p>
-          </div>
+        </p>
+      </div>
         </div>
       </footer>
     </div>

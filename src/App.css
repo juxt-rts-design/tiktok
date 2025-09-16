@@ -283,9 +283,20 @@ body {
   margin-right: 1rem;
 }
 
-.download-video-btn:hover {
+.download-video-btn:hover:not(:disabled) {
   background: linear-gradient(135deg, #e6004a, #cc0040);
   transform: scale(1.1);
+}
+
+.download-video-btn:disabled {
+  background: linear-gradient(135deg, #6b7280, #4b5563);
+  cursor: not-allowed;
+  opacity: 0.7;
+  transform: none;
+}
+
+.download-video-btn:disabled:hover {
+  transform: none;
 }
 
 .download-audio-btn {
@@ -314,6 +325,40 @@ body {
   border-radius: 1rem;
   padding: 1.5rem;
   border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* 🚀 Indicateur de performance */
+.performance-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 0.5rem;
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.performance-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.ultra-fast {
+  background: #10b981;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
 }
 
 .video-title {
